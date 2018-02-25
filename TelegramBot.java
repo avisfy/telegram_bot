@@ -24,34 +24,38 @@ public class TelegramBot extends TelegramLongPollingBot {
     private static Boolean needLog = true;
     private static String username = "";
     private static String token = "";
+    private static Document time;
+    private static Document table;
 
-    private void initData(){
-        if (username.isEmpty() || token.isEmpty()) {
-            try{
-                // Создается построитель документа
-                DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-                // Создается дерево DOM документа из файла
-                Document document = documentBuilder.parse(new File("impData.xml"));
-                if(needLog) log.info("getUs2");
-                // Получаем корневой элемент
-                username = document.getElementsByTagName("username").item(0).getTextContent();
-                token = document.getElementsByTagName("token").item(0).getTextContent();;
-                if(needLog) log.info("init username:"+username+" token:"+token);
-            }catch(FileNotFoundException e) {
-                if(needLog) log.warning("file not found");
-                System.exit(1);
-            }catch (ParserConfigurationException e) {
-                e.printStackTrace(System.out);
-            }catch (SAXException e) {
-                e.printStackTrace();
-            }catch (IOException e) {
-                e.printStackTrace();
-            }
+    private static void initTimetables()
+    {
+        try{
+            // Создается построитель документа
+            DocumentBuilder documentBuilderTime = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+            //DocumentBuilder documentBuilderTable = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+            // Создается дерево DOM документа из файла
+            time = documentBuilderTime.parse(new File("rt.xml"));
+            //table = documentBuilderTable.parse(new File("sub.xml"));
+            if (needLog) log.info("initTables");
+            //for (Integer i = 0; i< 6; i++)
+                //log.info(time.getElementsByTagName("begin").item(i).getTextContent());
+        }catch(FileNotFoundException e){
+            if (needLog) log.warning("file not found");
+            System.exit(1);
+        }catch(NullPointerException e) {
+            if(needLog) log.warning("null ptr");
+            System.exit(1);
+        }catch (ParserConfigurationException e) {
+            e.printStackTrace(System.out);
+        }catch (SAXException e) {
+            e.printStackTrace();
+        }catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
-
     public static void main(String[] args) {
+        initTimetables();
         ApiContextInitializer.init();
         TelegramBotsApi telegramBotsApi = new TelegramBotsApi();
         try {
@@ -62,17 +66,46 @@ public class TelegramBot extends TelegramLongPollingBot {
         if(needLog) log.info("main");
     }
 
+    private void initConnectionData(){
+        try{
+            if (username.isEmpty() || token.isEmpty()) {
+                // Создается построитель документа
+                DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+                // Создается дерево DOM документа из файла
+                Document document = documentBuilder.parse(new File("impData.xml"));
+                if (needLog) log.info("getUs2");
+
+                username = document.getElementsByTagName("username").item(0).getTextContent();
+                token = document.getElementsByTagName("token").item(0).getTextContent();
+                if (needLog) log.info("init username:" + username + " token:" + token);
+            }
+        }catch(FileNotFoundException e){
+            if (needLog) log.warning("file not found");
+            System.exit(1);
+        }catch(NullPointerException e) {
+            if(needLog) log.warning("null ptr");
+            System.exit(1);
+        }catch (ParserConfigurationException e) {
+            e.printStackTrace(System.out);
+        }catch (SAXException e) {
+            e.printStackTrace();
+        }catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
     @Override
     public String getBotUsername() {
         if(needLog) log.info("getUs");
-        initData();
+        initConnectionData();
         return username;
     }
 
     @Override
     public String getBotToken() {
         if(needLog) log.info("getTok");
-        initData();
+        initConnectionData();
         return token;
     }
 
@@ -96,8 +129,8 @@ public class TelegramBot extends TelegramLongPollingBot {
                             "\n/today - расписание пар на сегодня" +
                             "\n/now - инфо о ближайшей паре" +
                             "\n/week - расписание на эту неделю" +
-                            "\n/full - полное расписание на обе недели");
-                    break;
+                            "\n/full - полное расписание на обе недели" +
+                            "\n/help - список доступных команд");
                 case "/start":
                     sendMsg(chatId, "sendMeTheTimetable бот приветствует. Вот список того, что я могу:" +
                             "\n/time - расписание звонков" +
