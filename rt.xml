@@ -1,0 +1,45 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<time>
+  <period>
+    <number>1</number>
+    <begin>08:00</begin>
+    <end>09:30</end>
+    <gap>10</gap>
+  </period>
+  <period>
+    <number>2</number>
+    <begin>09:40</begin>
+    <end>11:10</end>
+    <gap>10</gap>
+  </period>
+  <period>
+    <number>3</number>
+    <begin>11:20</begin>
+    <end>12:50</end>
+    <gap>20</gap>
+  </period>
+  <period>
+    <number>4</number>
+    <begin>13:10</begin>
+    <end>14:40</end>
+    <gap>10</gap>
+  </period>
+  <period>
+    <number>5</number>
+    <begin>14:50</begin>
+    <end>16:20</end>
+    <gap>10</gap>
+  </period>
+  <period>
+    <number>6</number>
+    <begin>16:30</begin>
+    <end>18:00</end>
+    <gap>5</gap>
+  </period>
+  <period>
+    <number>7</number>
+    <begin>18:05</begin>
+    <end>19:35</end>
+    <gap>5</gap>
+  </period>
+</time>
