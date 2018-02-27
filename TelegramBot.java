@@ -94,19 +94,40 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
-    private static String getTime()
+    private static String getTime(Calendar now)
     {
         String timeString = "";
         Element root = time.getDocumentElement();
         NodeList children = root.getChildNodes();
         Node period;
         NodeList periodTimes;
+        String tableBegin;
+        String tableEnd;
+        Calendar calBegin;
+        Calendar calEnd;
+        calBegin = Calendar.getInstance();
+        calEnd = Calendar.getInstance();
         for (Integer i = 0; i<14; i++) {
             i = i+1;
             period= children.item(i);
             periodTimes = period.getChildNodes();
-            timeString = timeString+"*пара"+periodTimes.item(1).getTextContent()+"*\nначало:"+periodTimes.item(3).getTextContent()+
-                    "\nконец:"+periodTimes.item(5).getTextContent()+"\nперемена:"+periodTimes.item(7).getTextContent()+"\n\n";
+            tableBegin = periodTimes.item(3).getTextContent();
+            tableEnd = periodTimes.item(5).getTextContent();
+
+            calBegin .set(Calendar.HOUR_OF_DAY, Integer.parseInt(tableBegin.substring(0,2)));
+            calBegin .set(Calendar.MINUTE, Integer.parseInt(tableBegin.substring(3)));
+            calBegin .set(Calendar.SECOND, 0);
+
+            calEnd.set(Calendar.HOUR_OF_DAY, Integer.parseInt(tableEnd.substring(0,2)));
+            calEnd.set(Calendar.MINUTE, Integer.parseInt(tableEnd.substring(3)));
+            calEnd.set(Calendar.SECOND, 0);
+
+            if(now.before(calEnd) && now.after(calBegin))
+            {
+               log.info("сейчас ");
+                timeString = timeString+periodTimes.item(1).getTextContent()+"*пара"+"*\nначало:"+periodTimes.item(3).getTextContent()+
+                        "\nконец:"+periodTimes.item(5).getTextContent()+"\nперемена:"+periodTimes.item(7).getTextContent()+"\n\n";
+            }
             if(needLog) log.info("tut"+timeString);
         }
         return timeString;
@@ -133,6 +154,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             Message message = update.getMessage();
             String chatId = message.getChatId().toString();
             Calendar c = Calendar.getInstance();
+            //c.setFirstDayOfWeek(Calendar.MONDAY);
             Integer numberOfWeek;
             if ((Calendar.getInstance().get(Calendar.WEEK_OF_YEAR) % 2) == 0){
                 numberOfWeek = 1;
@@ -158,7 +180,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                             "\n/full - полное расписание на обе недели");
                     break;
                 case "/time":
-                    sendMsg(chatId, getTime());
+                    //sendMsg(chatId, getTime());
                     sendImageFromUrl(chatId);
                     break;
                 case "/today":
@@ -166,10 +188,8 @@ public class TelegramBot extends TelegramLongPollingBot {
                     sendMsg(chatId,numberOfWeek.toString());
                     break;
                 case "/now":
-                    Integer h = c.get(Calendar.HOUR_OF_DAY);
-                    Integer m = c.get(Calendar.MINUTE);
-                    String ans = h.toString()+m.toString();
-                    sendMsg(chatId,ans);
+                    String k = getTime(c);
+                    sendMsg(chatId,k);
                     break;
 
                 default:sendMsg(chatId, "Я не знаю что ответить на это");
