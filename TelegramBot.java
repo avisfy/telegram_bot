@@ -6,7 +6,7 @@ import org.telegram.telegrambots.api.objects.Message;
 import org.telegram.telegrambots.api.objects.Update;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.exceptions.TelegramApiException;
-import org.w3c.dom.Document;
+import org.w3c.dom.*;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -37,8 +37,8 @@ public class TelegramBot extends TelegramLongPollingBot {
             time = documentBuilderTime.parse(new File("rt.xml"));
             //table = documentBuilderTable.parse(new File("sub.xml"));
             if (needLog) log.info("initTables");
-            //for (Integer i = 0; i< 6; i++)
-                //log.info(time.getElementsByTagName("begin").item(i).getTextContent());
+
+
         }catch(FileNotFoundException e){
             if (needLog) log.warning("file not found");
             System.exit(1);
@@ -94,6 +94,23 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
+    private static String getTime()
+    {
+        String timeString = "";
+        Element root = time.getDocumentElement();
+        NodeList children = root.getChildNodes();
+        Node period;
+        NodeList periodTimes;
+        for (Integer i = 0; i<14; i++) {
+            i = i+1;
+            period= children.item(i);
+            periodTimes = period.getChildNodes();
+            timeString = timeString+"*пара"+periodTimes.item(1).getTextContent()+"*\nначало:"+periodTimes.item(3).getTextContent()+
+                    "\nконец:"+periodTimes.item(5).getTextContent()+"\nперемена:"+periodTimes.item(7).getTextContent()+"\n\n";
+            if(needLog) log.info("tut"+timeString);
+        }
+        return timeString;
+    }
 
     @Override
     public String getBotUsername() {
@@ -131,6 +148,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                             "\n/week - расписание на эту неделю" +
                             "\n/full - полное расписание на обе недели" +
                             "\n/help - список доступных команд");
+                    break;
                 case "/start":
                     sendMsg(chatId, "sendMeTheTimetable бот приветствует. Вот список того, что я могу:" +
                             "\n/time - расписание звонков" +
@@ -140,11 +158,18 @@ public class TelegramBot extends TelegramLongPollingBot {
                             "\n/full - полное расписание на обе недели");
                     break;
                 case "/time":
+                    sendMsg(chatId, getTime());
                     sendImageFromUrl(chatId);
                     break;
                 case "/today":
                     Integer dayOfWeek = c.get(Calendar.DAY_OF_WEEK);
                     sendMsg(chatId,numberOfWeek.toString());
+                    break;
+                case "/now":
+                    Integer h = c.get(Calendar.HOUR_OF_DAY);
+                    Integer m = c.get(Calendar.MINUTE);
+                    String ans = h.toString()+m.toString();
+                    sendMsg(chatId,ans);
                     break;
 
                 default:sendMsg(chatId, "Я не знаю что ответить на это");
