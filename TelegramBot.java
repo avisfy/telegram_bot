@@ -19,7 +19,6 @@ import java.util.Calendar;
 import java.util.logging.Logger;
 
 public class TelegramBot extends TelegramLongPollingBot {
-
     private static Logger log = Logger.getLogger(TelegramBot.class.getName());
     private static Boolean needLog = true;
     private static String username = "";
@@ -27,18 +26,17 @@ public class TelegramBot extends TelegramLongPollingBot {
     private static Document time;
     private static Document table;
 
+
     private static void initTimetables()
     {
         try{
             // Создается построитель документа
             DocumentBuilder documentBuilderTime = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-            //DocumentBuilder documentBuilderTable = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+            DocumentBuilder documentBuilderTable = DocumentBuilderFactory.newInstance().newDocumentBuilder();
             // Создается дерево DOM документа из файла
             time = documentBuilderTime.parse(new File("rt.xml"));
-            //table = documentBuilderTable.parse(new File("sub.xml"));
+            table = documentBuilderTable.parse(new File("sub.xml"));
             if (needLog) log.info("initTables");
-
-
         }catch(FileNotFoundException e){
             if (needLog) log.warning("file not found");
             System.exit(1);
@@ -54,6 +52,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
+
     public static void main(String[] args) {
         initTimetables();
         ApiContextInitializer.init();
@@ -66,6 +65,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         if(needLog) log.info("main");
     }
 
+
     private void initConnectionData(){
         try{
             if (username.isEmpty() || token.isEmpty()) {
@@ -73,7 +73,6 @@ public class TelegramBot extends TelegramLongPollingBot {
                 DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
                 // Создается дерево DOM документа из файла
                 Document document = documentBuilder.parse(new File("impData.xml"));
-                if (needLog) log.info("getUs2");
 
                 username = document.getElementsByTagName("username").item(0).getTextContent();
                 token = document.getElementsByTagName("token").item(0).getTextContent();
@@ -94,7 +93,24 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
-    private static String getTime(Calendar now)
+
+    @Override
+    public String getBotUsername() {
+        if(needLog) log.info("getUs");
+        initConnectionData();
+        return username;
+    }
+
+
+    @Override
+    public String getBotToken() {
+        if(needLog) log.info("getTok");
+        initConnectionData();
+        return token;
+    }
+
+
+    private static String getInstTable(Calendar now, Integer numberOfWeek)
     {
         String timeString = "";
         Element root = time.getDocumentElement();
@@ -107,6 +123,10 @@ public class TelegramBot extends TelegramLongPollingBot {
         Calendar calEnd;
         calBegin = Calendar.getInstance();
         calEnd = Calendar.getInstance();
+        calBegin.setFirstDayOfWeek(Calendar.MONDAY);
+        calEnd.setFirstDayOfWeek(Calendar.MONDAY);
+
+        //разбираем xml файл с расписанием звонков
         for (Integer i = 0; i<14; i++) {
             i = i+1;
             period= children.item(i);
@@ -122,30 +142,20 @@ public class TelegramBot extends TelegramLongPollingBot {
             calEnd.set(Calendar.MINUTE, Integer.parseInt(tableEnd.substring(3)));
             calEnd.set(Calendar.SECOND, 0);
 
-            if(now.before(calEnd) && now.after(calBegin))
+            Integer day = now.get(Calendar.DAY_OF_WEEK);
+            //идет ли в настоящее время какая-либо пара
+            if((day!= Calendar.SATURDAY)&& (day!= Calendar.SUNDAY) && now.before(calEnd) && now.after(calBegin))
             {
                log.info("сейчас ");
-                timeString = timeString+periodTimes.item(1).getTextContent()+"*пара"+"*\nначало:"+periodTimes.item(3).getTextContent()+
+                timeString = periodTimes.item(1).getTextContent()+"*пара"+"*\nначало:"+periodTimes.item(3).getTextContent()+
                         "\nконец:"+periodTimes.item(5).getTextContent()+"\nперемена:"+periodTimes.item(7).getTextContent()+"\n\n";
             }
+            else timeString = "неучебное время, отдыхай пока";
             if(needLog) log.info("tut"+timeString);
         }
         return timeString;
     }
 
-    @Override
-    public String getBotUsername() {
-        if(needLog) log.info("getUs");
-        initConnectionData();
-        return username;
-    }
-
-    @Override
-    public String getBotToken() {
-        if(needLog) log.info("getTok");
-        initConnectionData();
-        return token;
-    }
 
     // То, что выполняется при получении сообщения
     @Override
@@ -153,51 +163,45 @@ public class TelegramBot extends TelegramLongPollingBot {
         if (update.hasMessage() && update.getMessage().hasText()){
             Message message = update.getMessage();
             String chatId = message.getChatId().toString();
-            Calendar c = Calendar.getInstance();
-            //c.setFirstDayOfWeek(Calendar.MONDAY);
+            Calendar dayOfCalendar = Calendar.getInstance();
+            dayOfCalendar.setFirstDayOfWeek(Calendar.MONDAY);
             Integer numberOfWeek;
-            if ((Calendar.getInstance().get(Calendar.WEEK_OF_YEAR) % 2) == 0){
-                numberOfWeek = 1;
-            }
-            else {
-                numberOfWeek = 2;
-            }
+            if ((Calendar.getInstance().get(Calendar.WEEK_OF_YEAR) % 2) == 0) {numberOfWeek = 1; }
+            else {numberOfWeek = 2;}
+
             switch (message.getText()){
                 case "/help":
                     sendMsg(chatId, "У меня можно узнать расписание.\n/time - расписание звонков" +
                             "\n/today - расписание пар на сегодня" +
-                            "\n/now - инфо о ближайшей паре" +
                             "\n/week - расписание на эту неделю" +
-                            "\n/full - полное расписание на обе недели" +
-                            "\n/help - список доступных команд");
+                            "\n/full - полное расписание на обе недели");
                     break;
                 case "/start":
                     sendMsg(chatId, "sendMeTheTimetable бот приветствует. Вот список того, что я могу:" +
                             "\n/time - расписание звонков" +
                             "\n/today - расписание пар на сегодня" +
-                            "\n/now - инфо о ближайшей паре" +
                             "\n/week - расписание на эту неделю" +
-                            "\n/full - полное расписание на обе недели");
+                            "\n/full - полное расписание на обе недели" +
+                            "\n/help - список доступных команд");
                     break;
                 case "/time":
-                    //sendMsg(chatId, getTime());
                     sendImageFromUrl(chatId);
                     break;
                 case "/today":
-                    Integer dayOfWeek = c.get(Calendar.DAY_OF_WEEK);
-                    sendMsg(chatId,numberOfWeek.toString());
-                    break;
-                case "/now":
-                    String k = getTime(c);
+                    String k = getInstTable(dayOfCalendar, numberOfWeek);
                     sendMsg(chatId,k);
                     break;
-
+                case "/week":
+                    sendMsg(chatId,"В разработке:(");
+                    break;
+                case "/full":
+                    sendMsg(chatId,"В разработке:(");
+                    break;
                 default:sendMsg(chatId, "Я не знаю что ответить на это");
             }
-
-
         }
     }
+
 
     //@SuppressWarnings("deprecation")
     private void sendMsg(String chatId, String text) {
@@ -214,6 +218,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
+
     private void sendImageFromUrl(String chatId) {
         String url = "https://drive.google.com/open?id=1MYpIJRR8qKBIFkRYdCfWuT318Sb50PB_";
         // Create send method
@@ -229,7 +234,4 @@ public class TelegramBot extends TelegramLongPollingBot {
             e.printStackTrace();
         }
     }
-
-
-
 }
