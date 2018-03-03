@@ -15,6 +15,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.Calendar;
 import java.util.logging.Logger;
 
@@ -23,38 +24,93 @@ public class TelegramBot extends TelegramLongPollingBot {
     private static Boolean needLog = true;
     private static String username = "";
     private static String token = "";
-    private static Document time;
-    private static Document table;
+    private static NodeList childrenTime;
+    private static NodeList childrenTable;
 
 
-    private static void initTimetables()
-    {
-        try{
+    private static void initTimetables() {
+        try {
             // Создается построитель документа
             DocumentBuilder documentBuilderTime = DocumentBuilderFactory.newInstance().newDocumentBuilder();
             DocumentBuilder documentBuilderTable = DocumentBuilderFactory.newInstance().newDocumentBuilder();
             // Создается дерево DOM документа из файла
-            time = documentBuilderTime.parse(new File("rt.xml"));
-            table = documentBuilderTable.parse(new File("sub.xml"));
+            Document time = documentBuilderTime.parse(new File("rt.xml"));
+            Document table = documentBuilderTable.parse(new File("sub.xml"));
+            Element rootTable = table.getDocumentElement(); //<table>
+            childrenTable = rootTable.getChildNodes();
+            Element rootTime = time.getDocumentElement(); //<time>
+            childrenTime = rootTime.getChildNodes();
             if (needLog) log.info("initTables");
-        }catch(FileNotFoundException e){
+        } catch (FileNotFoundException e) {
             if (needLog) log.warning("file not found");
             System.exit(1);
-        }catch(NullPointerException e) {
-            if(needLog) log.warning("null ptr");
+        } catch (NullPointerException e) {
+            if (needLog) log.warning("null ptr");
             System.exit(1);
-        }catch (ParserConfigurationException e) {
+        } catch (ParserConfigurationException e) {
             e.printStackTrace(System.out);
-        }catch (SAXException e) {
-            e.printStackTrace();
-        }catch (IOException e) {
+        } catch (SAXException | IOException e) {
             e.printStackTrace();
         }
     }
 
 
+    private static void testTable() {
+        String tableString;
+        Node week;  //<week>
+        NodeList daysOfWeek;
+        Node day;  //<day>
+        NodeList subjectsList;
+        Node subject;   //<sub>
+        NodeList subjectInfo;
+        Node number;
+        Node name;
+        Node room;
+        Node prof;
+
+        week = childrenTable.item(1);
+        daysOfWeek = week.getChildNodes();
+
+        for (Integer j = 1; j <= 5; j++) {
+            tableString = "\n\n\n" + j + ":";
+            day = daysOfWeek.item((j * 2) - 1);
+            subjectsList = day.getChildNodes();
+            for (Integer i = 0; i < subjectsList.getLength() - 1; i++) {
+                i = i + 1;
+                subject = subjectsList.item(i);
+                subjectInfo = subject.getChildNodes();
+                number = subjectInfo.item(1);
+                name = subjectInfo.item(3);
+                room = subjectInfo.item(5);
+                prof = subjectInfo.item(7);
+
+                Integer k = subjectInfo.getLength();
+                if (number.getTextContent().equals(" ")) {
+                    continue;
+                } else {
+                    tableString = tableString + "\nпара:" + number.getTextContent();
+                }
+                if (name.getTextContent().equals(" ")) {
+                    tableString = tableString + "\n-";
+                    continue;
+                } else {
+                    tableString = tableString + "\n" + name.getTextContent();
+                }
+                if (!room.getTextContent().equals(" ")) {
+                    tableString = tableString + "\n" + room.getTextContent();
+                }
+                if (!prof.getTextContent().equals(" ")) {
+                    tableString = tableString + "\n" + prof.getTextContent() + "\n";
+                }
+                //log.info("si str"+tableString);
+            }
+            log.info(tableString);
+        }
+    }
+
     public static void main(String[] args) {
         initTimetables();
+        //testTable();
         ApiContextInitializer.init();
         TelegramBotsApi telegramBotsApi = new TelegramBotsApi();
         try {
@@ -62,12 +118,12 @@ public class TelegramBot extends TelegramLongPollingBot {
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
-        if(needLog) log.info("main");
+        if (needLog) log.info("main");
     }
 
 
-    private void initConnectionData(){
-        try{
+    private void initConnectionData() {
+        try {
             if (username.isEmpty() || token.isEmpty()) {
                 // Создается построитель документа
                 DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
@@ -78,17 +134,15 @@ public class TelegramBot extends TelegramLongPollingBot {
                 token = document.getElementsByTagName("token").item(0).getTextContent();
                 if (needLog) log.info("init username:" + username + " token:" + token);
             }
-        }catch(FileNotFoundException e){
+        } catch (FileNotFoundException e) {
             if (needLog) log.warning("file not found");
             System.exit(1);
-        }catch(NullPointerException e) {
-            if(needLog) log.warning("null ptr");
+        } catch (NullPointerException e) {
+            if (needLog) log.warning("null ptr");
             System.exit(1);
-        }catch (ParserConfigurationException e) {
+        } catch (ParserConfigurationException e) {
             e.printStackTrace(System.out);
-        }catch (SAXException e) {
-            e.printStackTrace();
-        }catch (IOException e) {
+        } catch (SAXException | IOException e) {
             e.printStackTrace();
         }
     }
@@ -96,7 +150,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Override
     public String getBotUsername() {
-        if(needLog) log.info("getUs");
+        if (needLog) log.info("getUs");
         initConnectionData();
         return username;
     }
@@ -104,57 +158,105 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Override
     public String getBotToken() {
-        if(needLog) log.info("getTok");
+        if (needLog) log.info("getTok");
         initConnectionData();
         return token;
     }
 
 
-    private static String getInstTable(Calendar now, Integer numberOfWeek)
-    {
+    private static String getInstTable(LocalDateTime now, Integer numberOfWeek) {
         String timeString = "";
-        Element root = time.getDocumentElement();
-        NodeList children = root.getChildNodes();
         Node period;
         NodeList periodTimes;
         String tableBegin;
         String tableEnd;
-        Calendar calBegin;
-        Calendar calEnd;
-        calBegin = Calendar.getInstance();
-        calEnd = Calendar.getInstance();
-        calBegin.setFirstDayOfWeek(Calendar.MONDAY);
-        calEnd.setFirstDayOfWeek(Calendar.MONDAY);
 
         //разбираем xml файл с расписанием звонков
-        for (Integer i = 0; i<14; i++) {
-            i = i+1;
-            period= children.item(i);
+        for (Integer i = 0; i < childrenTime.getLength() - 1; i++) {
+            i = i + 1;
+            period = childrenTable.item(i);
             periodTimes = period.getChildNodes();
             tableBegin = periodTimes.item(3).getTextContent();
             tableEnd = periodTimes.item(5).getTextContent();
 
-            calBegin .set(Calendar.HOUR_OF_DAY, Integer.parseInt(tableBegin.substring(0,2)));
-            calBegin .set(Calendar.MINUTE, Integer.parseInt(tableBegin.substring(3)));
-            calBegin .set(Calendar.SECOND, 0);
 
-            calEnd.set(Calendar.HOUR_OF_DAY, Integer.parseInt(tableEnd.substring(0,2)));
-            calEnd.set(Calendar.MINUTE, Integer.parseInt(tableEnd.substring(3)));
-            calEnd.set(Calendar.SECOND, 0);
-
-            Integer day = now.get(Calendar.DAY_OF_WEEK);
             //идет ли в настоящее время какая-либо пара
-            if((day!= Calendar.SATURDAY)&& (day!= Calendar.SUNDAY) && now.before(calEnd) && now.after(calBegin))
-            {
-               log.info("сейчас ");
-                timeString = periodTimes.item(1).getTextContent()+"*пара"+"*\nначало:"+periodTimes.item(3).getTextContent()+
-                        "\nконец:"+periodTimes.item(5).getTextContent()+"\nперемена:"+periodTimes.item(7).getTextContent()+"\n\n";
-            }
-            else timeString = "неучебное время, отдыхай пока";
-            if(needLog) log.info("tut"+timeString);
+                log.info("сейчас ");
+                timeString = periodTimes.item(1).getTextContent() + "*пара" + "*\nначало:" + periodTimes.item(3).getTextContent() +
+                        "\nконец:" + periodTimes.item(5).getTextContent() + "\nперемена:" + periodTimes.item(7).getTextContent() + "\n\n";
+            //} else timeString = "неучебное время, отдыхай пока";
+            if (needLog) log.info("tut" + timeString);
         }
         return timeString;
     }
+
+
+    private static String getTodaysTable(LocalDateTime thisDay, Integer thisWeek) {
+        String tableString = "";
+        try {
+            Node week = childrenTable.item((thisWeek * 2) - 1); //<week>
+            NodeList daysOfWeek = week.getChildNodes();
+            Integer numberOfDay = thisDay.getDayOfWeek().getValue();
+            if ((numberOfDay == 6) || (numberOfDay == 7)) {
+                tableString = "Сегодня выходной день - пар нет!";
+                return tableString;
+            }
+
+            Node day = daysOfWeek.item((numberOfDay * 2) - 1);  //<day>
+            NodeList subjectsList = day.getChildNodes();
+            Node subject;   //<sub>
+            NodeList subjectInfo;
+
+            Node period; //<period>
+            NodeList periodTimes;
+
+            Node number;
+            Node name;
+            Node room;
+            Node prof;
+            Integer numberOfSub;
+            for (Integer i = 1; i <= 7; i++) {
+                numberOfSub = (i * 2) - 1;
+                subject = subjectsList.item(numberOfSub);
+                subjectInfo = subject.getChildNodes();
+                number = subjectInfo.item(1);
+                name = subjectInfo.item(3);
+                room = subjectInfo.item(5);
+                prof = subjectInfo.item(7);
+
+                period = childrenTime.item(numberOfSub);
+                periodTimes = period.getChildNodes();
+
+
+                if (number.getTextContent().equals(" ")) {
+                    continue;
+                } else {
+                    tableString = tableString + "\n*" + number.getTextContent() + " пара*" +
+                            "   `" + periodTimes.item(3).getTextContent() + " - " + periodTimes.item(5).getTextContent()+"`";
+                }
+                if (name.getTextContent().equals(" ")) {
+                    tableString = tableString + "\n";
+                    continue;
+                } else {
+                    tableString = tableString + "\n" + name.getTextContent();
+                }
+                if (!room.getTextContent().equals(" ")) {
+                    tableString = tableString + "\n" + room.getTextContent();
+                }
+                else {
+                    tableString = tableString + "\n";
+                }
+                if (!prof.getTextContent().equals(" ")) {
+                    tableString = tableString + "\n" + prof.getTextContent() + "\n";
+                }
+            }
+        }catch(NullPointerException e){
+            log.warning("null ptr in getTodaysTable");
+            System.exit(1);
+        }
+        return tableString;
+    }
+
 
 
     // То, что выполняется при получении сообщения
@@ -164,7 +266,10 @@ public class TelegramBot extends TelegramLongPollingBot {
             Message message = update.getMessage();
             String chatId = message.getChatId().toString();
             Calendar dayOfCalendar = Calendar.getInstance();
-            dayOfCalendar.setFirstDayOfWeek(Calendar.MONDAY);
+            LocalDateTime now =  LocalDateTime.now();
+            LocalDateTime nowTest = now.plusDays(3);
+            Integer k = nowTest.getDayOfWeek().getValue();
+            if(needLog) log.info(k.toString());
             Integer numberOfWeek;
             if ((Calendar.getInstance().get(Calendar.WEEK_OF_YEAR) % 2) == 0) {numberOfWeek = 1; }
             else {numberOfWeek = 2;}
@@ -188,8 +293,8 @@ public class TelegramBot extends TelegramLongPollingBot {
                     sendImageFromUrl(chatId);
                     break;
                 case "/today":
-                    String k = getInstTable(dayOfCalendar, numberOfWeek);
-                    sendMsg(chatId,k);
+                    String answer = getTodaysTable(nowTest, numberOfWeek);
+                    sendMsg(chatId,answer);
                     break;
                 case "/week":
                     sendMsg(chatId,"В разработке:(");
