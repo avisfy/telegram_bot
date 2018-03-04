@@ -55,59 +55,6 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
 
-    private static void testTable() {
-        String tableString;
-        Node week;  //<week>
-        NodeList daysOfWeek;
-        Node day;  //<day>
-        NodeList subjectsList;
-        Node subject;   //<sub>
-        NodeList subjectInfo;
-        Node number;
-        Node name;
-        Node room;
-        Node prof;
-
-        week = childrenTable.item(1);
-        daysOfWeek = week.getChildNodes();
-
-        for (Integer j = 1; j <= 5; j++) {
-            tableString = "\n\n\n" + j + ":";
-            day = daysOfWeek.item((j * 2) - 1);
-            subjectsList = day.getChildNodes();
-            for (Integer i = 0; i < subjectsList.getLength() - 1; i++) {
-                i = i + 1;
-                subject = subjectsList.item(i);
-                subjectInfo = subject.getChildNodes();
-                number = subjectInfo.item(1);
-                name = subjectInfo.item(3);
-                room = subjectInfo.item(5);
-                prof = subjectInfo.item(7);
-
-                Integer k = subjectInfo.getLength();
-                if (number.getTextContent().equals(" ")) {
-                    continue;
-                } else {
-                    tableString = tableString + "\nпара:" + number.getTextContent();
-                }
-                if (name.getTextContent().equals(" ")) {
-                    tableString = tableString + "\n-";
-                    continue;
-                } else {
-                    tableString = tableString + "\n" + name.getTextContent();
-                }
-                if (!room.getTextContent().equals(" ")) {
-                    tableString = tableString + "\n" + room.getTextContent();
-                }
-                if (!prof.getTextContent().equals(" ")) {
-                    tableString = tableString + "\n" + prof.getTextContent() + "\n";
-                }
-                //log.info("si str"+tableString);
-            }
-            log.info(tableString);
-        }
-    }
-
     public static void main(String[] args) {
         initTimetables();
         //testTable();
@@ -164,7 +111,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
 
-    private static String getInstTable(LocalDateTime now, Integer numberOfWeek) {
+    /*private static String getInstTable(LocalDateTime now, Integer numberOfWeek) {
         String timeString = "";
         Node period;
         NodeList periodTimes;
@@ -188,11 +135,81 @@ public class TelegramBot extends TelegramLongPollingBot {
             if (needLog) log.info("tut" + timeString);
         }
         return timeString;
+    }*/
+
+
+    private static String getWeekTable(Integer thisWeek) {
+        String tableString = "Неделя "+thisWeek+"\n";
+        try {
+            Node week = childrenTable.item((thisWeek * 2) - 1); //<week>
+            NodeList daysOfWeek = week.getChildNodes();
+
+            Node day;  //<day>
+            NodeList subjectsList;
+            Node subject;   //<sub>
+            NodeList subjectInfo;
+            String nameOfDay = new String();
+
+            Node period; //<period>
+            NodeList periodTimes;
+
+            Node number;
+            Node name;
+            Node room;
+            Node prof;
+            Integer numberOfSub;
+            for (Integer j = 1; j <= 5; j++) {
+                nameOfDay = getName(j);
+                if(j != 1) tableString = tableString + "------------------------------------------------------------\n";
+                tableString = tableString + "\n*" + nameOfDay + "*";
+                day = daysOfWeek.item((j * 2) - 1);
+                subjectsList = day.getChildNodes();
+                for (Integer i = 1; i <= 7; i++) {
+                    numberOfSub = (i * 2) - 1;
+                    subject = subjectsList.item(numberOfSub);
+                    subjectInfo = subject.getChildNodes();
+                    number = subjectInfo.item(1);
+                    name = subjectInfo.item(3);
+                    room = subjectInfo.item(5);
+                    prof = subjectInfo.item(7);
+
+                    period = childrenTime.item(numberOfSub);
+                    periodTimes = period.getChildNodes();
+
+
+                    if (number.getTextContent().equals(" ")) {
+                        continue;
+                    } else {
+                        tableString = tableString + "\n_" + number.getTextContent() + " пара_" +
+                                "   `" + periodTimes.item(3).getTextContent() + " - " + periodTimes.item(5).getTextContent()+"`";
+                    }
+                    if (name.getTextContent().equals(" ")) {
+                        tableString = tableString + "\n";
+                        continue;
+                    } else {
+                        tableString = tableString + "\n" + name.getTextContent();
+                    }
+                    if (!room.getTextContent().equals(" ")) {
+                        tableString = tableString + "\n" + room.getTextContent();
+                    }
+                    else {
+                        tableString = tableString + "\n";
+                    }
+                    if (!prof.getTextContent().equals(" ")) {
+                        tableString = tableString + "\n" + prof.getTextContent() + "\n";
+                    }
+                }
+            }
+        }catch(NullPointerException e){
+            log.warning("null ptr in getTodaysTable");
+            System.exit(1);
+        }
+        return tableString;
     }
 
 
     private static String getTodaysTable(LocalDateTime thisDay, Integer thisWeek) {
-        String tableString = "";
+        String tableString = new String();
         try {
             Node week = childrenTable.item((thisWeek * 2) - 1); //<week>
             NodeList daysOfWeek = week.getChildNodes();
@@ -265,11 +282,11 @@ public class TelegramBot extends TelegramLongPollingBot {
         if (update.hasMessage() && update.getMessage().hasText()){
             Message message = update.getMessage();
             String chatId = message.getChatId().toString();
+            String answer = new String();
             Calendar dayOfCalendar = Calendar.getInstance();
             LocalDateTime now =  LocalDateTime.now();
+            //test
             LocalDateTime nowTest = now.plusDays(3);
-            Integer k = nowTest.getDayOfWeek().getValue();
-            if(needLog) log.info(k.toString());
             Integer numberOfWeek;
             if ((Calendar.getInstance().get(Calendar.WEEK_OF_YEAR) % 2) == 0) {numberOfWeek = 1; }
             else {numberOfWeek = 2;}
@@ -293,14 +310,18 @@ public class TelegramBot extends TelegramLongPollingBot {
                     sendImageFromUrl(chatId);
                     break;
                 case "/today":
-                    String answer = getTodaysTable(nowTest, numberOfWeek);
+                    answer = getTodaysTable(now, numberOfWeek);
                     sendMsg(chatId,answer);
                     break;
                 case "/week":
-                    sendMsg(chatId,"В разработке:(");
+                    answer = getWeekTable(numberOfWeek);
+                    sendMsg(chatId,answer);
                     break;
                 case "/full":
-                    sendMsg(chatId,"В разработке:(");
+                    answer = getWeekTable(1);
+                    sendMsg(chatId,answer);
+                    answer = getWeekTable(2);
+                    sendMsg(chatId,answer);
                     break;
                 default:sendMsg(chatId, "Я не знаю что ответить на это");
             }
@@ -339,4 +360,19 @@ public class TelegramBot extends TelegramLongPollingBot {
             e.printStackTrace();
         }
     }
+
+
+    private static String getName(Integer numberOfDay){
+        switch(numberOfDay){
+            case 1: return "Понедельник";
+            case 2: return "Вторник";
+            case 3: return "Среда";
+            case 4: return "Четверг";
+            case 5: return "Пятница";
+            default: return "";
+        }
+
+    }
 }
+
+
