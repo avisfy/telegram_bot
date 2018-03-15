@@ -15,9 +15,11 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.time.LocalDateTime;
 import java.util.Calendar;
+import java.util.Timer;
 import java.util.logging.Logger;
+
+import static java.lang.Character.getName;
 
 public class TelegramBot extends TelegramLongPollingBot {
     private static Logger log = Logger.getLogger(TelegramBot.class.getName());
@@ -57,7 +59,6 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     public static void main(String[] args) {
         initTimetables();
-        //testTable();
         ApiContextInitializer.init();
         TelegramBotsApi telegramBotsApi = new TelegramBotsApi();
         try {
@@ -111,115 +112,29 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
 
-    /*private static String getInstTable(LocalDateTime now, Integer numberOfWeek) {
-        String timeString = "";
-        Node period;
-        NodeList periodTimes;
-        String tableBegin;
-        String tableEnd;
-
-        //разбираем xml файл с расписанием звонков
-        for (Integer i = 0; i < childrenTime.getLength() - 1; i++) {
-            i = i + 1;
-            period = childrenTable.item(i);
-            periodTimes = period.getChildNodes();
-            tableBegin = periodTimes.item(3).getTextContent();
-            tableEnd = periodTimes.item(5).getTextContent();
-
-
-            //идет ли в настоящее время какая-либо пара
-                log.info("сейчас ");
-                timeString = periodTimes.item(1).getTextContent() + "*пара" + "*\nначало:" + periodTimes.item(3).getTextContent() +
-                        "\nконец:" + periodTimes.item(5).getTextContent() + "\nперемена:" + periodTimes.item(7).getTextContent() + "\n\n";
-            //} else timeString = "неучебное время, отдыхай пока";
-            if (needLog) log.info("tut" + timeString);
-        }
-        return timeString;
-    }*/
-
-
     private static String getWeekTable(Integer thisWeek) {
         String tableString = "Неделя "+thisWeek+"\n";
-        try {
-            Node week = childrenTable.item((thisWeek * 2) - 1); //<week>
-            NodeList daysOfWeek = week.getChildNodes();
-
-            Node day;  //<day>
-            NodeList subjectsList;
-            Node subject;   //<sub>
-            NodeList subjectInfo;
-            String nameOfDay = new String();
-
-            Node period; //<period>
-            NodeList periodTimes;
-
-            Node number;
-            Node name;
-            Node room;
-            Node prof;
-            Integer numberOfSub;
-            for (Integer j = 1; j <= 5; j++) {
-                nameOfDay = getName(j);
-                if(j != 1) tableString = tableString + "------------------------------------------------------------\n";
-                tableString = tableString + "\n*" + nameOfDay + "*";
-                day = daysOfWeek.item((j * 2) - 1);
-                subjectsList = day.getChildNodes();
-                for (Integer i = 1; i <= 7; i++) {
-                    numberOfSub = (i * 2) - 1;
-                    subject = subjectsList.item(numberOfSub);
-                    subjectInfo = subject.getChildNodes();
-                    number = subjectInfo.item(1);
-                    name = subjectInfo.item(3);
-                    room = subjectInfo.item(5);
-                    prof = subjectInfo.item(7);
-
-                    period = childrenTime.item(numberOfSub);
-                    periodTimes = period.getChildNodes();
-
-
-                    if (number.getTextContent().equals(" ")) {
-                        continue;
-                    } else {
-                        tableString = tableString + "\n_" + number.getTextContent() + " пара_" +
-                                "   `" + periodTimes.item(3).getTextContent() + " - " + periodTimes.item(5).getTextContent()+"`";
-                    }
-                    if (name.getTextContent().equals(" ")) {
-                        tableString = tableString + "\n";
-                        continue;
-                    } else {
-                        tableString = tableString + "\n" + name.getTextContent();
-                    }
-                    if (!room.getTextContent().equals(" ")) {
-                        tableString = tableString + "\n" + room.getTextContent();
-                    }
-                    else {
-                        tableString = tableString + "\n";
-                    }
-                    if (!prof.getTextContent().equals(" ")) {
-                        tableString = tableString + "\n" + prof.getTextContent() + "\n";
-                    }
-                }
-            }
-        }catch(NullPointerException e){
-            log.warning("null ptr in getTodaysTable");
-            System.exit(1);
+        for (Integer j = 1; j <= 5; j++) {
+            if (j != 1) tableString = tableString + "------------------------------------------------------------\n";
+            tableString = tableString + "\n*" + getName(j) + "*\n" + getTodayTable(j+1 , thisWeek);
         }
         return tableString;
     }
 
 
-    private static String getTodaysTable(LocalDateTime thisDay, Integer thisWeek) {
+    private static String getTodayTable(Integer thisDay, Integer thisWeek) {
         String tableString = new String();
         try {
             Node week = childrenTable.item((thisWeek * 2) - 1); //<week>
             NodeList daysOfWeek = week.getChildNodes();
-            Integer numberOfDay = thisDay.getDayOfWeek().getValue();
-            if ((numberOfDay == 6) || (numberOfDay == 7)) {
+            if ((thisDay == Calendar.SATURDAY) || (thisDay == Calendar.SUNDAY)) {
                 tableString = "Сегодня выходной день - пар нет!";
                 return tableString;
             }
+            //вычитаем, тк вс 1, пн - 2 и тд. вычитать безопасно, тк numberOfDay точно не 1 исходя из условия выше
+            thisDay = thisDay - 1;
 
-            Node day = daysOfWeek.item((numberOfDay * 2) - 1);  //<day>
+            Node day = daysOfWeek.item((thisDay * 2) - 1);  //<day>
             NodeList subjectsList = day.getChildNodes();
             Node subject;   //<sub>
             NodeList subjectInfo;
@@ -244,12 +159,11 @@ public class TelegramBot extends TelegramLongPollingBot {
                 period = childrenTime.item(numberOfSub);
                 periodTimes = period.getChildNodes();
 
-
                 if (number.getTextContent().equals(" ")) {
                     continue;
                 } else {
-                    tableString = tableString + "\n*" + number.getTextContent() + " пара*" +
-                            "   `" + periodTimes.item(3).getTextContent() + " - " + periodTimes.item(5).getTextContent()+"`";
+                    tableString = tableString + "\n_" + number.getTextContent() + " пара_" +
+                            "   `" + periodTimes.item(3).getTextContent() + "-" + periodTimes.item(5).getTextContent()+"`";
                 }
                 if (name.getTextContent().equals(" ")) {
                     tableString = tableString + "\n";
@@ -268,12 +182,29 @@ public class TelegramBot extends TelegramLongPollingBot {
                 }
             }
         }catch(NullPointerException e){
-            log.warning("null ptr in getTodaysTable");
+            if(needLog) log.warning("null ptr in getTodaysTable");
             System.exit(1);
         }
         return tableString;
     }
 
+
+    public static void completeTask(String chatId, Calendar day){
+        //test
+        //day.add(Calendar.DATE, 3);
+        Integer numberOfWeek;
+        Integer numberOfDay = day.get(Calendar.DAY_OF_WEEK);
+        if(numberOfDay == Calendar.SUNDAY)
+        {
+            numberOfWeek = (day.get(Calendar.WEEK_OF_YEAR) % 2) == 0 ? 2 : 1;
+        }else {
+            numberOfWeek = (day.get(Calendar.WEEK_OF_YEAR) % 2) == 0 ? 1 : 2;
+        }
+
+        Integer numberOfNextDay = numberOfDay + 1;
+        //sendMsg(chatId, getTodayTable(numberOfNextDay, numberOfWeek));
+
+    }
 
 
     // То, что выполняется при получении сообщения
@@ -283,22 +214,22 @@ public class TelegramBot extends TelegramLongPollingBot {
             Message message = update.getMessage();
             String chatId = message.getChatId().toString();
             String answer = new String();
-            Calendar dayOfCalendar = Calendar.getInstance();
-            LocalDateTime now =  LocalDateTime.now();
+
+            Calendar now = Calendar.getInstance();
             //test
-            LocalDateTime nowTest = now.plusDays(3);
+            //now.add(Calendar.DATE, 3);
             Integer numberOfWeek;
-            if ((Calendar.getInstance().get(Calendar.WEEK_OF_YEAR) % 2) == 0) {numberOfWeek = 1; }
-            else {numberOfWeek = 2;}
+            numberOfWeek = (now.get(Calendar.WEEK_OF_YEAR) % 2) == 0 ? 1 : 2;
+            Integer day = now.get(Calendar.DAY_OF_WEEK);
 
             switch (message.getText()){
-                case "/help":
-                    sendMsg(chatId, "У меня можно узнать расписание.\n/time - расписание звонков" +
-                            "\n/today - расписание пар на сегодня" +
-                            "\n/week - расписание на эту неделю" +
-                            "\n/full - полное расписание на обе недели");
-                    break;
                 case "/start":
+                    telegramTimer timerTask = new telegramTimer();
+                    timerTask.setChatId(chatId);
+                    Timer timer = new Timer(true);
+                    // будем запускать каждых 10 секунд (10 * 1000 миллисекунд)
+                    timer.scheduleAtFixedRate(timerTask, 0, 10*1000);
+
                     sendMsg(chatId, "sendMeTheTimetable бот приветствует. Вот список того, что я могу:" +
                             "\n/time - расписание звонков" +
                             "\n/today - расписание пар на сегодня" +
@@ -306,11 +237,17 @@ public class TelegramBot extends TelegramLongPollingBot {
                             "\n/full - полное расписание на обе недели" +
                             "\n/help - список доступных команд");
                     break;
+                case "/help":
+                    sendMsg(chatId, "У меня можно узнать расписание.\n/time - расписание звонков" +
+                            "\n/today - расписание пар на сегодня" +
+                            "\n/week - расписание на эту неделю" +
+                            "\n/full - полное расписание на обе недели");
+                    break;
                 case "/time":
                     sendImageFromUrl(chatId);
                     break;
                 case "/today":
-                    answer = getTodaysTable(now, numberOfWeek);
+                    answer = getTodayTable(day, numberOfWeek);
                     sendMsg(chatId,answer);
                     break;
                 case "/week":
@@ -323,7 +260,8 @@ public class TelegramBot extends TelegramLongPollingBot {
                     answer = getWeekTable(2);
                     sendMsg(chatId,answer);
                     break;
-                default:sendMsg(chatId, "Я не знаю что ответить на это");
+                default:
+                    sendMsg(chatId, "Я не знаю что ответить на это");
             }
         }
     }
@@ -337,7 +275,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         //s.setReplyToMessageId(message.getMessageId());
         s.setText(text);
         try {
-            // sendMessage(s);
+            sendMessage(s);
             execute(s);
         } catch (TelegramApiException e) {
             e.printStackTrace();
