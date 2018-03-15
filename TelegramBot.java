@@ -28,6 +28,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     private static String token = "";
     private static NodeList childrenTime;
     private static NodeList childrenTable;
+    private enum TYPE_TABLE{SMALL, NORMAL};
 
 
     private static void initTimetables() {
@@ -116,13 +117,13 @@ public class TelegramBot extends TelegramLongPollingBot {
         String tableString = "Неделя "+thisWeek+"\n";
         for (Integer j = 1; j <= 5; j++) {
             if (j != 1) tableString = tableString + "------------------------------------------------------------\n";
-            tableString = tableString + "\n*" + getName(j) + "*\n" + getTodayTable(j+1 , thisWeek);
+            tableString = tableString + "\n*" + getName(j) + "*\n" + getTodayTable(j+1 , thisWeek, TYPE_TABLE.NORMAL);
         }
         return tableString;
     }
 
 
-    private static String getTodayTable(Integer thisDay, Integer thisWeek) {
+    private static String getTodayTable(Integer thisDay, Integer thisWeek, TYPE_TABLE typeTable) {
         String tableString = new String();
         try {
             Node week = childrenTable.item((thisWeek * 2) - 1); //<week>
@@ -166,7 +167,8 @@ public class TelegramBot extends TelegramLongPollingBot {
                             "   `" + periodTimes.item(3).getTextContent() + "-" + periodTimes.item(5).getTextContent()+"`";
                 }
                 if (name.getTextContent().equals(" ")) {
-                    tableString = tableString + "\n";
+                    if(typeTable == TYPE_TABLE.NORMAL)
+                        tableString = tableString + "\n";
                     continue;
                 } else {
                     tableString = tableString + "\n" + name.getTextContent();
@@ -178,8 +180,10 @@ public class TelegramBot extends TelegramLongPollingBot {
                     tableString = tableString + "\n";
                 }
                 if (!prof.getTextContent().equals(" ")) {
-                    tableString = tableString + "\n" + prof.getTextContent() + "\n";
+                    tableString = tableString + "\n" + prof.getTextContent();
                 }
+                if(typeTable == TYPE_TABLE.NORMAL)
+                    tableString = tableString +"\n";
             }
         }catch(NullPointerException e){
             if(needLog) log.warning("null ptr in getTodaysTable");
@@ -189,7 +193,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
 
-    public static void completeTask(String chatId, Calendar day){
+    public void completeTask(String chatId, Calendar day){
         //test
         //day.add(Calendar.DATE, 3);
         Integer numberOfWeek;
@@ -202,7 +206,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
 
         Integer numberOfNextDay = numberOfDay + 1;
-        //sendMsg(chatId, getTodayTable(numberOfNextDay, numberOfWeek));
+        sendMsg(chatId, getTodayTable(numberOfNextDay, numberOfWeek, TYPE_TABLE.SMALL));
 
     }
 
@@ -224,11 +228,10 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             switch (message.getText()){
                 case "/start":
-                    telegramTimer timerTask = new telegramTimer();
-                    timerTask.setChatId(chatId);
+                    TelegramTimer timerTask = new TelegramTimer(chatId, this);
                     Timer timer = new Timer(true);
-                    // будем запускать каждых 10 секунд (10 * 1000 миллисекунд)
-                    timer.scheduleAtFixedRate(timerTask, 0, 10*1000);
+                    // будем запускать каждst 60 секунд (60 * 1000 миллисекунд)
+                    timer.scheduleAtFixedRate(timerTask, 0, 60*1000);
 
                     sendMsg(chatId, "sendMeTheTimetable бот приветствует. Вот список того, что я могу:" +
                             "\n/time - расписание звонков" +
@@ -247,7 +250,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                     sendImageFromUrl(chatId);
                     break;
                 case "/today":
-                    answer = getTodayTable(day, numberOfWeek);
+                    answer = getTodayTable(day, numberOfWeek, TYPE_TABLE.NORMAL);
                     sendMsg(chatId,answer);
                     break;
                 case "/week":
@@ -275,7 +278,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         //s.setReplyToMessageId(message.getMessageId());
         s.setText(text);
         try {
-            sendMessage(s);
+            //sendMessage(s);
             execute(s);
         } catch (TelegramApiException e) {
             e.printStackTrace();
