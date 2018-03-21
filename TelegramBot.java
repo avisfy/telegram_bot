@@ -4,6 +4,9 @@ import org.telegram.telegrambots.api.methods.send.SendMessage;
 import org.telegram.telegrambots.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.api.objects.Message;
 import org.telegram.telegrambots.api.objects.Update;
+import org.telegram.telegrambots.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.api.objects.replykeyboard.ReplyKeyboardRemove;
+import org.telegram.telegrambots.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.exceptions.TelegramApiException;
 import org.w3c.dom.*;
@@ -15,11 +18,12 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Timer;
 import java.util.logging.Logger;
 
-import static java.lang.Character.getName;
 
 public class TelegramBot extends TelegramLongPollingBot {
     private static Logger log = Logger.getLogger(TelegramBot.class.getName());
@@ -270,6 +274,28 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
 
+    private void showMyKeyboard(SendMessage s)
+    {
+        ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+        List<KeyboardRow> keyboard = new ArrayList<>();
+        KeyboardRow row = new KeyboardRow();
+        // Set each button, you can also use KeyboardButton objects if you need something else than text
+        row.add("/time");
+        row.add("/today");
+        row.add("/week");
+        //добавляем первую строку
+        keyboard.add(row);
+        row = new KeyboardRow();
+        row.add("/full");
+        row.add("/help");
+        //добавляем вторую строку
+        keyboard.add(row);
+        keyboardMarkup.setKeyboard(keyboard);
+        //добавляем к сообщению
+        s.setReplyMarkup(keyboardMarkup);
+    }
+
+
     //@SuppressWarnings("deprecation")
     private void sendMsg(String chatId, String text) {
         SendMessage s = new SendMessage();
@@ -277,6 +303,8 @@ public class TelegramBot extends TelegramLongPollingBot {
         s.setChatId(chatId);
         //s.setReplyToMessageId(message.getMessageId());
         s.setText(text);
+
+         showMyKeyboard(s);
         try {
             //sendMessage(s);
             execute(s);
