@@ -12,6 +12,7 @@ import org.telegram.telegrambots.exceptions.TelegramApiException;
 import org.w3c.dom.*;
 import org.xml.sax.SAXException;
 
+import javax.xml.crypto.Data;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -26,40 +27,14 @@ import java.util.logging.Logger;
 
 
 public class TelegramBot extends TelegramLongPollingBot {
-    private static Logger log = Logger.getLogger(TelegramBot.class.getName());
+    public static Logger log = Logger.getLogger(TelegramBot.class.getName());
     private static Boolean needLog = true;
     private static String username = "";
     private static String token = "";
     private static NodeList childrenTime;
     private static NodeList childrenTable;
     private enum TYPE_TABLE{SMALL, NORMAL};
-
-
-    private static void initTimetables() {
-        try {
-            // Создается построитель документа
-            DocumentBuilder documentBuilderTime = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-            DocumentBuilder documentBuilderTable = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-            // Создается дерево DOM документа из файла
-            Document time = documentBuilderTime.parse(new File("rt.xml"));
-            Document table = documentBuilderTable.parse(new File("sub.xml"));
-            Element rootTable = table.getDocumentElement(); //<table>
-            childrenTable = rootTable.getChildNodes();
-            Element rootTime = time.getDocumentElement(); //<time>
-            childrenTime = rootTime.getChildNodes();
-            if (needLog) log.info("initTables");
-        } catch (FileNotFoundException e) {
-            if (needLog) log.warning("file not found");
-            System.exit(1);
-        } catch (NullPointerException e) {
-            if (needLog) log.warning("null ptr");
-            System.exit(1);
-        } catch (ParserConfigurationException e) {
-            e.printStackTrace(System.out);
-        } catch (SAXException | IOException e) {
-            e.printStackTrace();
-        }
-    }
+    private static int BEFORE_MIN = 15;
 
 
     public static void main(String[] args) {
@@ -101,6 +76,33 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
 
+    private static void initTimetables() {
+        try {
+            // Создается построитель документа
+            DocumentBuilder documentBuilderTime = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+            DocumentBuilder documentBuilderTable = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+            // Создается дерево DOM документа из файла
+            Document time = documentBuilderTime.parse(new File("rt.xml"));
+            Document table = documentBuilderTable.parse(new File("sub.xml"));
+            Element rootTable = table.getDocumentElement(); //<table>
+            childrenTable = rootTable.getChildNodes();
+            Element rootTime = time.getDocumentElement(); //<time>
+            childrenTime = rootTime.getChildNodes();
+            if (needLog) log.info("initTables");
+        } catch (FileNotFoundException e) {
+            if (needLog) log.warning("file not found");
+            System.exit(1);
+        } catch (NullPointerException e) {
+            if (needLog) log.warning("null ptr");
+            System.exit(1);
+        } catch (ParserConfigurationException e) {
+            e.printStackTrace(System.out);
+        } catch (SAXException | IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
     @Override
     public String getBotUsername() {
         if (needLog) log.info("getUs");
@@ -114,104 +116,6 @@ public class TelegramBot extends TelegramLongPollingBot {
         if (needLog) log.info("getTok");
         initConnectionData();
         return token;
-    }
-
-
-    private static String getWeekTable(Integer thisWeek) {
-        String tableString = "Неделя "+thisWeek+"\n";
-        for (Integer j = 1; j <= 5; j++) {
-            if (j != 1) tableString = tableString + "------------------------------------------------------------\n";
-            tableString = tableString + "\n*" + getName(j) + "*\n" + getTodayTable(j+1 , thisWeek, TYPE_TABLE.NORMAL);
-        }
-        return tableString;
-    }
-
-
-    private static String getTodayTable(Integer thisDay, Integer thisWeek, TYPE_TABLE typeTable) {
-        String tableString = new String();
-        try {
-            Node week = childrenTable.item((thisWeek * 2) - 1); //<week>
-            NodeList daysOfWeek = week.getChildNodes();
-            if ((thisDay == Calendar.SATURDAY) || (thisDay == Calendar.SUNDAY)) {
-                tableString = "Сегодня выходной день - пар нет!";
-                return tableString;
-            }
-            //вычитаем, тк вс 1, пн - 2 и тд. вычитать безопасно, тк numberOfDay точно не 1 исходя из условия выше
-            thisDay = thisDay - 1;
-
-            Node day = daysOfWeek.item((thisDay * 2) - 1);  //<day>
-            NodeList subjectsList = day.getChildNodes();
-            Node subject;   //<sub>
-            NodeList subjectInfo;
-
-            Node period; //<period>
-            NodeList periodTimes;
-
-            Node number;
-            Node name;
-            Node room;
-            Node prof;
-            Integer numberOfSub;
-            for (Integer i = 1; i <= 7; i++) {
-                numberOfSub = (i * 2) - 1;
-                subject = subjectsList.item(numberOfSub);
-                subjectInfo = subject.getChildNodes();
-                number = subjectInfo.item(1);
-                name = subjectInfo.item(3);
-                room = subjectInfo.item(5);
-                prof = subjectInfo.item(7);
-
-                period = childrenTime.item(numberOfSub);
-                periodTimes = period.getChildNodes();
-
-                if (number.getTextContent().equals(" ")) {
-                    continue;
-                } else {
-                    tableString = tableString + "\n_" + number.getTextContent() + " пара_" +
-                            "   `" + periodTimes.item(3).getTextContent() + "-" + periodTimes.item(5).getTextContent()+"`";
-                }
-                if (name.getTextContent().equals(" ")) {
-                    if(typeTable == TYPE_TABLE.NORMAL)
-                        tableString = tableString + "\n";
-                    continue;
-                } else {
-                    tableString = tableString + "\n" + name.getTextContent();
-                }
-                if (!room.getTextContent().equals(" ")) {
-                    tableString = tableString + "\n" + room.getTextContent();
-                }
-                else {
-                    tableString = tableString + "\n";
-                }
-                if (!prof.getTextContent().equals(" ")) {
-                    tableString = tableString + "\n" + prof.getTextContent();
-                }
-                if(typeTable == TYPE_TABLE.NORMAL)
-                    tableString = tableString +"\n";
-            }
-        }catch(NullPointerException e){
-            if(needLog) log.warning("null ptr in getTodaysTable");
-            System.exit(1);
-        }
-        return tableString;
-    }
-
-
-    public void completeTask(String chatId, Calendar day){
-        //test
-        //day.add(Calendar.DATE, 3);
-        Integer numberOfWeek;
-        Integer numberOfDay = day.get(Calendar.DAY_OF_WEEK);
-        if(numberOfDay == Calendar.SUNDAY)
-        {
-            numberOfWeek = (day.get(Calendar.WEEK_OF_YEAR) % 2) == 0 ? 2 : 1;
-        }else {
-            numberOfWeek = (day.get(Calendar.WEEK_OF_YEAR) % 2) == 0 ? 1 : 2;
-        }
-
-        Integer numberOfNextDay = numberOfDay + 1;
-        sendMsg(chatId, getTodayTable(numberOfNextDay, numberOfWeek, TYPE_TABLE.SMALL));
-
     }
 
 
@@ -274,8 +178,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
 
-    private void showMyKeyboard(SendMessage s)
-    {
+    private void showMyKeyboard(SendMessage s) {
         ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
         List<KeyboardRow> keyboard = new ArrayList<>();
         KeyboardRow row = new KeyboardRow();
@@ -328,6 +231,199 @@ public class TelegramBot extends TelegramLongPollingBot {
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
+    }
+
+
+    private static String getWeekTable(Integer thisWeek) {
+        String tableString = "Неделя "+thisWeek+"\n";
+        for (int j = 1; j <= 5; j++) {
+            if (j != 1) tableString = tableString + "------------------------------------------------------------\n";
+            tableString = tableString + "\n*" + getName(j) + "*\n" + getTodayTable(j+1 , thisWeek, TYPE_TABLE.NORMAL);
+        }
+        return tableString;
+    }
+
+
+    private static String getTodayTable(Integer thisDay, Integer thisWeek, TYPE_TABLE typeTable) {
+        String tableString = new String();
+        try {
+            Node week = childrenTable.item((thisWeek * 2) - 1); //<week>
+            NodeList daysOfWeek = week.getChildNodes();
+            if ((thisDay == Calendar.SATURDAY) || (thisDay == Calendar.SUNDAY)) {
+                tableString = "Сегодня выходной день - пар нет!";
+                return tableString;
+            }
+            //вычитаем, тк вс 1, пн - 2 и тд. вычитать безопасно, тк numberOfDay точно не 1 исходя из условия выше
+            thisDay = thisDay - 1;
+
+            Node day = daysOfWeek.item((thisDay * 2) - 1);  //<day>
+            NodeList subjectsList = day.getChildNodes();
+            Node subject;   //<sub>
+            NodeList subjectInfo;
+
+            Node period; //<period>
+            NodeList periodTimes;
+
+            Node number;
+            Node name;
+            Node room;
+            Node prof;
+            Integer numberOfSub;
+            for (int i = 1; i <= 7; i++) {
+                numberOfSub = (i * 2) - 1;
+                subject = subjectsList.item(numberOfSub);
+                subjectInfo = subject.getChildNodes();
+                number = subjectInfo.item(1);
+                name = subjectInfo.item(3);
+                room = subjectInfo.item(5);
+                prof = subjectInfo.item(7);
+
+                period = childrenTime.item(numberOfSub);
+                periodTimes = period.getChildNodes();
+
+                if (number.getTextContent().equals(" ")) {
+                    continue;
+                } else {
+                    tableString = tableString + "\n_" + number.getTextContent() + " пара_" +
+                            "   `" + periodTimes.item(3).getTextContent() + "-" + periodTimes.item(5).getTextContent()+"`";
+                }
+                if (name.getTextContent().equals(" ")) {
+                    if(typeTable == TYPE_TABLE.NORMAL)
+                        tableString = tableString + "\n";
+                    continue;
+                } else {
+                    tableString = tableString + "\n" + name.getTextContent();
+                }
+                if (!room.getTextContent().equals(" ")) {
+                    tableString = tableString + "\n" + room.getTextContent();
+                }
+                else {
+                    tableString = tableString + "\n";
+                }
+                if (!prof.getTextContent().equals(" ")) {
+                    tableString = tableString + "\n" + prof.getTextContent();
+                }
+                if(typeTable == TYPE_TABLE.NORMAL)
+                    tableString = tableString +"\n";
+            }
+        }catch(NullPointerException e){
+            if(needLog) log.warning("null ptr in getTodaysTable");
+            System.exit(1);
+        }
+        return tableString;
+    }
+
+
+    public void completeTaskEvening(String chatId, Calendar day){
+        //test
+        //day.add(Calendar.DATE, 3);
+        Integer numberOfWeek;
+        Integer numberOfDay = day.get(Calendar.DAY_OF_WEEK);
+        if(numberOfDay == Calendar.SUNDAY)
+        {
+            numberOfWeek = (day.get(Calendar.WEEK_OF_YEAR) % 2) == 0 ? 2 : 1;
+        }else {
+            numberOfWeek = (day.get(Calendar.WEEK_OF_YEAR) % 2) == 0 ? 1 : 2;
+        }
+
+        Integer numberOfNextDay = numberOfDay + 1;
+        sendMsg(chatId, getTodayTable(numberOfNextDay, numberOfWeek, TYPE_TABLE.SMALL));
+
+    }
+
+
+    public void completeTaskBefore(String chatId, int thisNumber, int thisWeek, int thisDay)
+    {
+        String answer = new String();
+        try {
+            Node week = childrenTable.item((thisWeek * 2) - 1); //<week>
+            NodeList daysOfWeek = week.getChildNodes();
+            //вычитаем, тк вс 1, пн - 2 и тд. вычитать безопасно, тк numberOfDay точно не 1
+            thisDay = thisDay - 1;
+
+            Node day = daysOfWeek.item((thisDay * 2) - 1);  //<day>
+            NodeList subjectsList = day.getChildNodes();
+            Node subject;   //<sub>
+            NodeList subjectInfo;
+
+            Node period; //<period>
+            NodeList periodTimes;
+
+            Node number;
+            Node name;
+            Node room;
+            Node prof;
+            Integer numberOfSub;
+            numberOfSub = (thisNumber * 2) - 1;
+            subject = subjectsList.item(numberOfSub);
+            subjectInfo = subject.getChildNodes();
+            number = subjectInfo.item(1);
+            name = subjectInfo.item(3);
+            room = subjectInfo.item(5);
+            prof = subjectInfo.item(7);
+
+            period = childrenTime.item(numberOfSub);
+            periodTimes = period.getChildNodes();
+
+            if (number.getTextContent().equals(" ")) {
+                return;
+            } else {
+                answer = number.getTextContent() + " пара " +
+                            "   " + periodTimes.item(3).getTextContent() + "-" + periodTimes.item(5).getTextContent();
+            }
+            // еслт пара пустая, ничего не пишем, уведомлять не нужно
+            if (name.getTextContent().equals(" ")) {
+                return;
+            } else {
+                answer = answer + "\n" + name.getTextContent();
+            }
+            if (!room.getTextContent().equals(" ")) {
+                answer = answer + "\n" + room.getTextContent();
+            }
+            if (!prof.getTextContent().equals(" ")) {
+                answer = answer + "\n" + prof.getTextContent();
+            }
+        }catch(NullPointerException e){
+            if(needLog) log.warning("null ptr in getTodaysTable");
+            System.exit(1);
+        }
+        sendMsg(chatId, answer);
+    }
+
+    //возвращает номер нужной пары, 0 если в ближайшее время вообще нет пар
+    public int checkTime(int thisDay, Calendar timeNow)
+    {
+        try {
+            Node period; //<period>
+            NodeList periodTimes;
+            Integer numberOfSub;
+            Integer tableHour = 0;
+            Integer tableMinute = 0;
+            for (int i = 1; i <= 7; i++) {
+                numberOfSub = (i * 2) - 1;
+
+                period = childrenTime.item(numberOfSub);
+                periodTimes = period.getChildNodes();
+                String pairTime = periodTimes.item(3).getTextContent();
+                tableHour = Integer.parseInt(pairTime.substring(0, 2), 10);
+                tableMinute = Integer.parseInt(pairTime.substring(3), 10);
+                Calendar pair;
+                pair = (Calendar) timeNow.clone();
+                pair.set(Calendar.HOUR_OF_DAY,  tableHour);
+                pair.set(Calendar.MINUTE,  tableMinute);
+                pair.add(Calendar.MINUTE, -BEFORE_MIN);
+                if(needLog) log.info(pair.getTime().toString()+" "+timeNow.getTime().toString());
+                if(pair.compareTo(timeNow) == 0)
+                    return i;
+            }
+        }catch(NullPointerException e){
+            if(needLog) log.warning("null ptr in checkTime");
+            System.exit(1);
+        }catch (NumberFormatException e){
+            if(needLog) log.warning("number format error");
+            System.exit(1);
+        }
+        return 0;
     }
 
 
