@@ -5,14 +5,12 @@ import org.telegram.telegrambots.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.api.objects.Message;
 import org.telegram.telegrambots.api.objects.Update;
 import org.telegram.telegrambots.api.objects.replykeyboard.ReplyKeyboardMarkup;
-import org.telegram.telegrambots.api.objects.replykeyboard.ReplyKeyboardRemove;
 import org.telegram.telegrambots.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.exceptions.TelegramApiException;
 import org.w3c.dom.*;
 import org.xml.sax.SAXException;
 
-import javax.xml.crypto.Data;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -28,7 +26,7 @@ import java.util.logging.Logger;
 
 public class TelegramBot extends TelegramLongPollingBot {
     public static Logger log = Logger.getLogger(TelegramBot.class.getName());
-    private static Boolean needLog = true;
+    private static Boolean needLog = false;
     private static String username = "";
     private static String token = "";
     private static NodeList childrenTime;
@@ -138,7 +136,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 case "/start":
                     TelegramTimer timerTask = new TelegramTimer(chatId, this);
                     Timer timer = new Timer(true);
-                    // будем запускать каждst 60 секунд (60 * 1000 миллисекунд)
+                    // будем запускать каждые 60 секунд (60 * 1000 миллисекунд)
                     timer.scheduleAtFixedRate(timerTask, 0, 60*1000);
 
                     sendMsg(chatId, "sendMeTheTimetable бот приветствует. Вот список того, что я могу:" +

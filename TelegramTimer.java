@@ -1,5 +1,4 @@
 import java.util.Calendar;
-import java.util.Date;
 import java.util.TimerTask;
 
 public class TelegramTimer extends TimerTask {
@@ -19,6 +18,9 @@ public class TelegramTimer extends TimerTask {
         int numberOfDay = now.get(Calendar.DAY_OF_WEEK);
 
         //в пт и сб отсылать ничего не нужно, тк на след. день ничего нет
+        //test
+        //now.set(Calendar.HOUR_OF_DAY, 20);
+        //now.set(Calendar.MINUTE, 10);
         if ((numberOfDay != Calendar.FRIDAY) && (numberOfDay != Calendar.SATURDAY)) {
             if ((now.get(Calendar.HOUR_OF_DAY) == 20) && (now.get(Calendar.MINUTE) == 10)) {
                 pTBot.completeTaskEvening(chatId, now);
@@ -27,8 +29,11 @@ public class TelegramTimer extends TimerTask {
         }
         if ((numberOfDay != Calendar.SATURDAY) && (numberOfDay != Calendar.SUNDAY)) {
             //test
+            //now.set(Calendar.HOUR_OF_DAY, 7);
+            //now.set(Calendar.MINUTE, 45);
+            //now.set(Calendar.HOUR_OF_DAY, 11);
+            //now.set(Calendar.MINUTE, 5);
             Integer number = pTBot.checkTime(numberOfDay, now);
-            pTBot.log.info(number.toString());
             if(number != 0)
             {
                 int week = (now.get(Calendar.WEEK_OF_YEAR) % 2) == 0 ? 1 : 2;
