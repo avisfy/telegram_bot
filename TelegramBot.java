@@ -21,12 +21,15 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Timer;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 
 public class TelegramBot extends TelegramLongPollingBot {
     private static Logger log = Logger.getLogger(TelegramBot.class.getName());
-    private static Boolean needLog = false;
+    private static Boolean needLog = true;
     private static String username = "";
     private static String token = "";
     private static NodeList childrenTime;
@@ -36,6 +39,11 @@ public class TelegramBot extends TelegramLongPollingBot {
 
 
     public static void main(String[] args) {
+        //System.out.println("Hey");
+        log.setLevel(Level.ALL);
+        ConsoleHandler handler = new ConsoleHandler();
+        handler.setFormatter(new SimpleFormatter());
+        log.addHandler(handler);
         initTimetables();
         ApiContextInitializer.init();
         TelegramBotsApi telegramBotsApi = new TelegramBotsApi();
@@ -68,7 +76,9 @@ public class TelegramBot extends TelegramLongPollingBot {
             System.exit(1);
         } catch (ParserConfigurationException e) {
             e.printStackTrace(System.out);
-        } catch (SAXException | IOException e) {
+        } catch (SAXException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -95,7 +105,9 @@ public class TelegramBot extends TelegramLongPollingBot {
             System.exit(1);
         } catch (ParserConfigurationException e) {
             e.printStackTrace(System.out);
-        } catch (SAXException | IOException e) {
+        } catch (SAXException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -103,7 +115,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Override
     public String getBotUsername() {
-        if (needLog) log.info("getUs");
+        //if (needLog) log.info("getUs");
         initConnectionData();
         return username;
     }
@@ -111,7 +123,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Override
     public String getBotToken() {
-        if (needLog) log.info("getTok");
+        //if (needLog) log.info("getTok");
         initConnectionData();
         return token;
     }
@@ -178,7 +190,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     private void showMyKeyboard(SendMessage s) {
         ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
-        List<KeyboardRow> keyboard = new ArrayList<>();
+        List<KeyboardRow> keyboard = new ArrayList<KeyboardRow>();
         KeyboardRow row = new KeyboardRow();
         // Set each button, you can also use KeyboardButton objects if you need something else than text
         row.add("/time");
@@ -410,7 +422,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 pair.set(Calendar.HOUR_OF_DAY,  tableHour);
                 pair.set(Calendar.MINUTE,  tableMinute);
                 pair.add(Calendar.MINUTE, -BEFORE_MIN);
-                if(needLog) log.info(pair.getTime().toString()+" "+timeNow.getTime().toString());
+                //if(needLog) log.fine(pair.getTime().toString()+" "+timeNow.getTime().toString());
                 if(pair.compareTo(timeNow) == 0)
                     return i;
             }
