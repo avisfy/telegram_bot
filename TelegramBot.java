@@ -1,3 +1,4 @@
+import com.sun.deploy.security.ValidationState;
 import org.telegram.telegrambots.ApiContextInitializer;
 import org.telegram.telegrambots.TelegramBotsApi;
 import org.telegram.telegrambots.api.methods.send.SendMessage;
@@ -30,20 +31,24 @@ import java.util.logging.SimpleFormatter;
 public class TelegramBot extends TelegramLongPollingBot {
     private static Logger log = Logger.getLogger(TelegramBot.class.getName());
     private static Boolean needLog = true;
+    private static TelegramTimer timerTask;
+
     private static String username = "";
     private static String token = "";
+
     private static NodeList childrenTime;
     private static NodeList childrenTable;
-    private enum TYPE_TABLE{SMALL, NORMAL};
+    public enum TYPE_TABLE{SMALL, NORMAL};
     private static int BEFORE_MIN = 15;
 
 
     public static void main(String[] args) {
-        //System.out.println("Hey");
+        //log settings
         log.setLevel(Level.ALL);
         ConsoleHandler handler = new ConsoleHandler();
         handler.setFormatter(new SimpleFormatter());
         log.addHandler(handler);
+
         initTimetables();
         ApiContextInitializer.init();
         TelegramBotsApi telegramBotsApi = new TelegramBotsApi();
@@ -135,9 +140,10 @@ public class TelegramBot extends TelegramLongPollingBot {
         if (update.hasMessage() && update.getMessage().hasText()){
             Message message = update.getMessage();
             String chatId = message.getChatId().toString();
-            String answer = new String();
+            String answer;
 
             Calendar now = Calendar.getInstance();
+            now.setFirstDayOfWeek(Calendar.MONDAY);
             //test
             //now.add(Calendar.DATE, 3);
             Integer numberOfWeek;
@@ -146,11 +152,13 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             switch (message.getText()){
                 case "/start":
-                    TelegramTimer timerTask = new TelegramTimer(chatId, this);
-                    Timer timer = new Timer(true);
-                    // будем запускать каждые 60 секунд (60 * 1000 миллисекунд)
-                    timer.scheduleAtFixedRate(timerTask, 0, 60*1000);
-
+                    if(timerTask == null) {
+                        timerTask = new TelegramTimer(chatId, this);
+                        Timer timer = new Timer(true);
+                        // будем запускать каждые 60 секунд (60 * 1000 миллисекунд)
+                        timer.scheduleAtFixedRate(timerTask, 0, 60*1000);
+                        if(needLog) log.info("timer started");
+                    }
                     sendMsg(chatId, "sendMeTheTimetable бот приветствует. Вот список того, что я могу:" +
                             "\n/time - расписание звонков" +
                             "\n/today - расписание пар на сегодня" +
@@ -181,6 +189,13 @@ public class TelegramBot extends TelegramLongPollingBot {
                     answer = getWeekTable(2);
                     sendMsg(chatId,answer);
                     break;
+                case  "/tomorrow":
+                    now.add(Calendar.DAY_OF_MONTH, 1);
+                    //int nextDay = now.get(Calendar.DAY_OF_WEEK);
+                    //answer = getTodayTable(nextDay, numberOfWeek, TYPE_TABLE.NORMAL);
+                    //sendMsg(chatId,answer);
+                    completeTaskNextDay(chatId, now, TYPE_TABLE.NORMAL);
+                    break;
                 default:
                     sendMsg(chatId, "Я не знаю что ответить на это");
             }
@@ -195,10 +210,11 @@ public class TelegramBot extends TelegramLongPollingBot {
         // Set each button, you can also use KeyboardButton objects if you need something else than text
         row.add("/time");
         row.add("/today");
-        row.add("/week");
+        row.add("/tomorrow");
         //добавляем первую строку
         keyboard.add(row);
         row = new KeyboardRow();
+        row.add("/week");
         row.add("/full");
         row.add("/help");
         //добавляем вторую строку
@@ -209,14 +225,12 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
 
-    //@SuppressWarnings("deprecation")
     private void sendMsg(String chatId, String text) {
         SendMessage s = new SendMessage();
         s.enableMarkdown(true);
         s.setChatId(chatId);
         //s.setReplyToMessageId(message.getMessageId());
         s.setText(text);
-
          showMyKeyboard(s);
         try {
             //sendMessage(s);
@@ -245,23 +259,24 @@ public class TelegramBot extends TelegramLongPollingBot {
 
 
     private static String getWeekTable(Integer thisWeek) {
-        String tableString = "Неделя "+thisWeek+"\n";
+        StringBuffer tableString = new StringBuffer("Неделя ");
+        tableString.append(thisWeek).append("\n");
         for (int j = 1; j <= 5; j++) {
-            if (j != 1) tableString = tableString + "------------------------------------------------------------\n";
-            tableString = tableString + "\n*" + getName(j) + "*\n" + getTodayTable(j+1 , thisWeek, TYPE_TABLE.NORMAL);
+            if (j != 1) tableString.append("------------------------------------------------------------\n");
+            tableString.append("\n*").append(getName(j)).append("*\n").append(getTodayTable(j+1 , thisWeek, TYPE_TABLE.NORMAL));
         }
-        return tableString;
+        return tableString.toString();
     }
 
 
     private static String getTodayTable(Integer thisDay, Integer thisWeek, TYPE_TABLE typeTable) {
-        String tableString = new String();
+        StringBuffer tableString = new StringBuffer(380);
         try {
             Node week = childrenTable.item((thisWeek * 2) - 1); //<week>
             NodeList daysOfWeek = week.getChildNodes();
             if ((thisDay == Calendar.SATURDAY) || (thisDay == Calendar.SUNDAY)) {
-                tableString = "Сегодня выходной день - пар нет!";
-                return tableString;
+                tableString.append("Выходной день - пар нет!");
+                return tableString.toString();
             }
             //вычитаем, тк вс 1, пн - 2 и тд. вычитать безопасно, тк numberOfDay точно не 1 исходя из условия выше
             thisDay = thisDay - 1;
@@ -294,61 +309,64 @@ public class TelegramBot extends TelegramLongPollingBot {
                 if (number.getTextContent().equals(" ")) {
                     continue;
                 } else {
-                    tableString = tableString + "\n_" + number.getTextContent() + " пара_" +
-                            "   `" + periodTimes.item(3).getTextContent() + "-" + periodTimes.item(5).getTextContent()+"`";
+                    tableString.append("\n_").append(number.getTextContent()).append(" пара_").append("   `");
+                    tableString.append(periodTimes.item(3).getTextContent()).append("-");
+                    tableString.append(periodTimes.item(5).getTextContent()).append("`");
                 }
+                //если название пары пусто, значит пары нет вообще, безымянных пар нет
                 if (name.getTextContent().equals(" ")) {
-                    if(typeTable == TYPE_TABLE.NORMAL)
-                        tableString = tableString + "\n";
+                    if(typeTable == TYPE_TABLE.NORMAL) {
+                        tableString.append("\n");
+                    }
                     continue;
                 } else {
-                    tableString = tableString + "\n" + name.getTextContent();
+                    tableString.append("\n").append(name.getTextContent());
                 }
                 if (!room.getTextContent().equals(" ")) {
-                    tableString = tableString + "\n" + room.getTextContent();
+                    tableString.append("\n").append(room.getTextContent());
                 }
                 else {
-                    tableString = tableString + "\n";
+                    tableString.append("\n");
                 }
                 if (!prof.getTextContent().equals(" ")) {
-                    tableString = tableString + "\n" + prof.getTextContent();
+                    tableString.append("\n").append(prof.getTextContent());
                 }
                 if(typeTable == TYPE_TABLE.NORMAL)
-                    tableString = tableString +"\n";
+                    tableString.append("\n");
             }
         }catch(NullPointerException e){
             if(needLog) log.warning("null ptr in getTodaysTable");
             System.exit(1);
         }
-        return tableString;
+        return tableString.toString();
     }
 
 
-    public void completeTaskEvening(String chatId, Calendar day){
+    public void completeTaskNextDay(String chatId, Calendar day, TYPE_TABLE typeTable){
         //test
         //day.add(Calendar.DATE, 3);
-        Integer numberOfWeek;
-        Integer numberOfDay = day.get(Calendar.DAY_OF_WEEK);
+        int numberOfWeek;
+        int numberOfDay = day.get(Calendar.DAY_OF_WEEK);
         if(numberOfDay == Calendar.SUNDAY)
         {
             numberOfWeek = (day.get(Calendar.WEEK_OF_YEAR) % 2) == 0 ? 2 : 1;
         }else {
             numberOfWeek = (day.get(Calendar.WEEK_OF_YEAR) % 2) == 0 ? 1 : 2;
         }
-
-        Integer numberOfNextDay = numberOfDay + 1;
-        sendMsg(chatId, getTodayTable(numberOfNextDay, numberOfWeek, TYPE_TABLE.SMALL));
+        day.add(Calendar.DATE, 1);
+        int numberOfNextDay = day.get(Calendar.DAY_OF_WEEK);
+        sendMsg(chatId, getTodayTable(numberOfNextDay, numberOfWeek, typeTable));
 
     }
 
 
     public void completeTaskBefore(String chatId, int thisNumber, int thisWeek, int thisDay)
     {
-        String answer = new String();
+        StringBuffer answer = new StringBuffer(50);
         try {
             Node week = childrenTable.item((thisWeek * 2) - 1); //<week>
             NodeList daysOfWeek = week.getChildNodes();
-            //вычитаем, тк вс 1, пн - 2 и тд. вычитать безопасно, тк numberOfDay точно не 1
+            //вычитаем, тк вс 1, пн - 2 и тд. вычитать безопасно, numberOfDay точно не 1 тк в вс нет пар и рассылка не производится
             thisDay = thisDay - 1;
 
             Node day = daysOfWeek.item((thisDay * 2) - 1);  //<day>
@@ -378,37 +396,39 @@ public class TelegramBot extends TelegramLongPollingBot {
             if (number.getTextContent().equals(" ")) {
                 return;
             } else {
-                answer = number.getTextContent() + " пара " +
-                            "   " + periodTimes.item(3).getTextContent() + "-" + periodTimes.item(5).getTextContent();
+                answer.append(number.getTextContent()).append(" пара ").append("   ");
+                answer.append(periodTimes.item(3).getTextContent()).append("-");
+                answer.append(periodTimes.item(5).getTextContent());
             }
             // еслт пара пустая, ничего не пишем, уведомлять не нужно
             if (name.getTextContent().equals(" ")) {
                 return;
             } else {
-                answer = answer + "\n" + name.getTextContent();
+                answer.append("\n").append(name.getTextContent());
             }
             if (!room.getTextContent().equals(" ")) {
-                answer = answer + "\n" + room.getTextContent();
+                answer.append("\n").append(room.getTextContent());
             }
             if (!prof.getTextContent().equals(" ")) {
-                answer = answer + "\n" + prof.getTextContent();
+                answer.append("\n").append(prof.getTextContent());
             }
         }catch(NullPointerException e){
             if(needLog) log.warning("null ptr in getTodaysTable");
             System.exit(1);
         }
-        sendMsg(chatId, answer);
+        sendMsg(chatId, answer.toString());
     }
 
     //возвращает номер нужной пары, 0 если в ближайшее время вообще нет пар
-    public int checkTime(int thisDay, Calendar timeNow)
+    public int checkTime(Calendar timeNow)
     {
+        timeNow.add(Calendar.MINUTE, BEFORE_MIN);
         try {
             Node period; //<period>
             NodeList periodTimes;
-            Integer numberOfSub;
-            Integer tableHour = 0;
-            Integer tableMinute = 0;
+            int numberOfSub;
+            int tableHour = 0;
+            int tableMinute = 0;
             for (int i = 1; i <= 7; i++) {
                 numberOfSub = (i * 2) - 1;
 
@@ -417,13 +437,14 @@ public class TelegramBot extends TelegramLongPollingBot {
                 String pairTime = periodTimes.item(3).getTextContent();
                 tableHour = Integer.parseInt(pairTime.substring(0, 2), 10);
                 tableMinute = Integer.parseInt(pairTime.substring(3), 10);
-                Calendar pair;
-                pair = (Calendar) timeNow.clone();
-                pair.set(Calendar.HOUR_OF_DAY,  tableHour);
-                pair.set(Calendar.MINUTE,  tableMinute);
-                pair.add(Calendar.MINUTE, -BEFORE_MIN);
+                //Calendar pair;
+                //pair = (Calendar) timeNow.clone();
+                //pair.set(Calendar.HOUR_OF_DAY,  tableHour);
+                //pair.set(Calendar.MINUTE,  tableMinute);
+                //pair.add(Calendar.MINUTE, -BEFORE_MIN);
                 //if(needLog) log.fine(pair.getTime().toString()+" "+timeNow.getTime().toString());
-                if(pair.compareTo(timeNow) == 0)
+                //if(pair.compareTo(timeNow) == 0)
+                if(tableHour == timeNow.get(Calendar.HOUR_OF_DAY) && (timeNow.get(Calendar.MINUTE) == tableMinute))
                     return i;
             }
         }catch(NullPointerException e){
@@ -437,7 +458,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
 
-    private static String getName(Integer numberOfDay){
+    private static String getName(int numberOfDay){
         switch(numberOfDay){
             case 1: return "Понедельник";
             case 2: return "Вторник";
