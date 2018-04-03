@@ -190,7 +190,6 @@ public class TelegramBot extends TelegramLongPollingBot {
                     sendMsg(chatId,answer);
                     break;
                 case  "/tomorrow":
-                    now.add(Calendar.DAY_OF_MONTH, 1);
                     //int nextDay = now.get(Calendar.DAY_OF_WEEK);
                     //answer = getTodayTable(nextDay, numberOfWeek, TYPE_TABLE.NORMAL);
                     //sendMsg(chatId,answer);
