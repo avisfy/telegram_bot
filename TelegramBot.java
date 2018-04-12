@@ -32,6 +32,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     private static Logger log = Logger.getLogger(TelegramBot.class.getName());
     private static Boolean needLog = true;
     private static TelegramTimer timerTask;
+    private static ArrayList chatIds = new ArrayList(7);
 
     private static String username = "";
     private static String token = "";
@@ -42,14 +43,15 @@ public class TelegramBot extends TelegramLongPollingBot {
     private static int BEFORE_MIN = 15;
 
 
+
     public static void main(String[] args) {
         //log settings
         log.setLevel(Level.ALL);
         ConsoleHandler handler = new ConsoleHandler();
         handler.setFormatter(new SimpleFormatter());
         log.addHandler(handler);
-
         initTimetables();
+
         ApiContextInitializer.init();
         TelegramBotsApi telegramBotsApi = new TelegramBotsApi();
         try {
@@ -152,8 +154,13 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             switch (message.getText()){
                 case "/start":
+                    if(!chatIds.contains(chatId)){
+                        chatIds.add(chatId);
+                        if(needLog) log.info("chat id added:"+chatId);
+                    }
+                    //при  появлении первого пользователя ботом создатся таймер.
                     if(timerTask == null) {
-                        timerTask = new TelegramTimer(chatId, this);
+                        timerTask = new TelegramTimer(this);
                         Timer timer = new Timer(true);
                         // будем запускать каждые 60 секунд (60 * 1000 миллисекунд)
                         timer.scheduleAtFixedRate(timerTask, 0, 60*1000);
@@ -193,7 +200,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                     //int nextDay = now.get(Calendar.DAY_OF_WEEK);
                     //answer = getTodayTable(nextDay, numberOfWeek, TYPE_TABLE.NORMAL);
                     //sendMsg(chatId,answer);
-                    completeTaskNextDay(chatId, now, TYPE_TABLE.NORMAL);
+                    completeTaskNextDay(now, chatIds.indexOf(chatId));
                     break;
                 default:
                     sendMsg(chatId, "Я не знаю что ответить на это");
@@ -341,7 +348,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
 
-    public void completeTaskNextDay(String chatId, Calendar day, TYPE_TABLE typeTable){
+    public void completeTaskNextDay(Calendar day, int idPos){
         //test
         //day.add(Calendar.DATE, 3);
         int numberOfWeek;
@@ -354,12 +361,23 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
         day.add(Calendar.DATE, 1);
         int numberOfNextDay = day.get(Calendar.DAY_OF_WEEK);
-        sendMsg(chatId, getTodayTable(numberOfNextDay, numberOfWeek, typeTable));
 
+        String answer;
+        //если idPos<0  тогда рассылка всем, иначе idPos - индекс нужного chatId в массиве
+        if (idPos <0 ){
+             answer = getTodayTable(numberOfNextDay, numberOfWeek, TYPE_TABLE.SMALL);
+            for(int i = 0; i<chatIds.size(); i++) {
+                sendMsg((String) chatIds.get(i), answer);
+            }
+        }
+        else {
+                answer = getTodayTable(numberOfNextDay, numberOfWeek, TYPE_TABLE.NORMAL);
+                    sendMsg((String)chatIds.get(idPos), answer);
+            }
     }
 
 
-    public void completeTaskBefore(String chatId, int thisNumber, int thisWeek, int thisDay)
+    public void completeTaskBefore(int thisNumber, int thisWeek, int thisDay)
     {
         StringBuffer answer = new StringBuffer(50);
         try {
@@ -415,7 +433,10 @@ public class TelegramBot extends TelegramLongPollingBot {
             if(needLog) log.warning("null ptr in getTodaysTable");
             System.exit(1);
         }
-        sendMsg(chatId, answer.toString());
+
+        for(int i = 0; i<chatIds.size(); i++) {
+            sendMsg((String)chatIds.get(i), answer.toString());
+        }
     }
 
     //возвращает номер нужной пары, 0 если в ближайшее время вообще нет пар

@@ -2,12 +2,12 @@ import java.util.Calendar;
 import java.util.TimerTask;
 
 public class TelegramTimer extends TimerTask {
-    private String chatId;
+    //private String chatId;
     private TelegramBot pTBot;
 
-    public TelegramTimer(String chatId, TelegramBot pTBot)
+    public TelegramTimer(TelegramBot pTBot)
     {
-        this.chatId = chatId;
+        //this.chatId = chatId;
         this.pTBot = pTBot;
     }
 
@@ -25,7 +25,7 @@ public class TelegramTimer extends TimerTask {
         //в пт и сб отсылать ничего не нужно, тк на след. день ничего нет
         if ((numberOfDay != Calendar.FRIDAY) && (numberOfDay != Calendar.SATURDAY)) {
             if ((now.get(Calendar.HOUR_OF_DAY) == 20) && (now.get(Calendar.MINUTE) == 10)) {
-                pTBot.completeTaskNextDay(chatId, now, TelegramBot.TYPE_TABLE.SMALL);
+                pTBot.completeTaskNextDay(now, -1);
                 return;
             }
         }
@@ -35,11 +35,12 @@ public class TelegramTimer extends TimerTask {
             //now.set(Calendar.MINUTE, 45);
             //now.set(Calendar.HOUR_OF_DAY, 12);
             //now.set(Calendar.MINUTE, 55);
+
             Integer number = pTBot.checkTime(now);
             if(number != 0)
             {
                 int week = (now.get(Calendar.WEEK_OF_YEAR) % 2) == 0 ? 1 : 2;
-                pTBot.completeTaskBefore(chatId, number, week, numberOfDay);
+                pTBot.completeTaskBefore(number, week, numberOfDay);
             }
         }
     }
