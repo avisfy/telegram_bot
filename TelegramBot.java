@@ -1,4 +1,7 @@
 import com.sun.deploy.security.ValidationState;
+import org.apache.http.HttpHost;
+import org.apache.http.client.config.RequestConfig;
+import org.telegram.telegrambots.ApiContext;
 import org.telegram.telegrambots.ApiContextInitializer;
 import org.telegram.telegrambots.TelegramBotsApi;
 import org.telegram.telegrambots.api.methods.send.SendMessage;
@@ -7,8 +10,10 @@ import org.telegram.telegrambots.api.objects.Message;
 import org.telegram.telegrambots.api.objects.Update;
 import org.telegram.telegrambots.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.api.objects.replykeyboard.buttons.KeyboardRow;
+import org.telegram.telegrambots.bots.DefaultBotOptions;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.exceptions.TelegramApiException;
+import org.telegram.telegrambots.exceptions.TelegramApiRequestException;
 import org.w3c.dom.*;
 import org.xml.sax.SAXException;
 
@@ -36,12 +41,19 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     private static String username = "";
     private static String token = "";
+    private static String host = "";
+    private static Integer port;
 
     private static NodeList childrenTime;
     private static NodeList childrenTable;
+    private static NodeList childrenProxy;
     public enum TYPE_TABLE{SMALL, NORMAL};
     private static int BEFORE_MIN = 15;
 
+
+    protected TelegramBot(DefaultBotOptions botOptions) {
+        super(botOptions);
+    }
 
 
     public static void main(String[] args) {
@@ -51,11 +63,20 @@ public class TelegramBot extends TelegramLongPollingBot {
         handler.setFormatter(new SimpleFormatter());
         log.addHandler(handler);
         initTimetables();
-
-        ApiContextInitializer.init();
-        TelegramBotsApi telegramBotsApi = new TelegramBotsApi();
+        initConnectionData();
         try {
-            telegramBotsApi.registerBot(new TelegramBot());
+            ApiContextInitializer.init();
+            TelegramBotsApi telegramBotsApi = new TelegramBotsApi();
+            DefaultBotOptions botOptions = ApiContext.getInstance(DefaultBotOptions.class);
+            HttpHost httpHost = new HttpHost(host, port);
+            RequestConfig requestConfig = RequestConfig.custom().setProxy(httpHost).setAuthenticationEnabled(false).build();
+            botOptions.setRequestConfig(requestConfig);
+            botOptions.setHttpProxy(httpHost);
+            TelegramLongPollingBot bot = new TelegramBot(botOptions);
+            telegramBotsApi.registerBot(bot);
+        } catch (TelegramApiRequestException e){
+            log.info("error proxy");
+            e.printStackTrace();
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
@@ -63,17 +84,31 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
 
-    private void initConnectionData() {
+    private static void initConnectionData() {
         try {
-            if (username.isEmpty() || token.isEmpty()) {
-                // Создается построитель документа
-                DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-                // Создается дерево DOM документа из файла
-                Document document = documentBuilder.parse(new File("impData.xml"));
-
+            // Создается построитель документа
+            DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+            // Создается дерево DOM документа из файла
+            Document document = documentBuilder.parse(new File("impData.xml"));
+            if (username.isEmpty()) {
                 username = document.getElementsByTagName("username").item(0).getTextContent();
+                if (needLog) log.info("init username:" + username);
+            }
+            if (token.isEmpty()){
                 token = document.getElementsByTagName("token").item(0).getTextContent();
-                if (needLog) log.info("init username:" + username + " token:" + token);
+                if (needLog) log.info("init token:" + token);
+            }
+            if (host.isEmpty())
+            {
+                host = document.getElementsByTagName("host").item(0).getTextContent();
+                //port.valueOf(document.getElementsByTagName("port").item(0).getTextContent());
+                port = Integer.parseInt(document.getElementsByTagName("port").item(0).getTextContent());
+                if (port == 0)
+                {
+                    if (needLog) log.warning("error port");
+                    System.exit(1);
+                }
+                if (needLog) log.info("init host and port:" + host+ " "+port.toString());
             }
         } catch (FileNotFoundException e) {
             if (needLog) log.warning("file not found");
@@ -87,6 +122,9 @@ public class TelegramBot extends TelegramLongPollingBot {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
+        } catch (NumberFormatException e) {
+        e.printStackTrace();
+        System.exit(1);
         }
     }
 
@@ -96,13 +134,17 @@ public class TelegramBot extends TelegramLongPollingBot {
             // Создается построитель документа
             DocumentBuilder documentBuilderTime = DocumentBuilderFactory.newInstance().newDocumentBuilder();
             DocumentBuilder documentBuilderTable = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+            DocumentBuilder documentBuilderProxy = DocumentBuilderFactory.newInstance().newDocumentBuilder();
             // Создается дерево DOM документа из файла
             Document time = documentBuilderTime.parse(new File("rt.xml"));
             Document table = documentBuilderTable.parse(new File("sub.xml"));
+            Document proxy = documentBuilderTable.parse(new File("proxy.xml"));
             Element rootTable = table.getDocumentElement(); //<table>
             childrenTable = rootTable.getChildNodes();
             Element rootTime = time.getDocumentElement(); //<time>
             childrenTime = rootTime.getChildNodes();
+            Element rootProxy = time.getDocumentElement(); //<proxy>
+            childrenProxy =rootProxy.getChildNodes();
             if (needLog) log.info("initTables");
         } catch (FileNotFoundException e) {
             if (needLog) log.warning("file not found");
@@ -155,7 +197,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             switch (message.getText()){
                 case "/start":
                     if(!chatIds.contains(chatId)){
-                        chatIds.add(chatId);
+                        chatIds.add((String)chatId);
                         if(needLog) log.info("chat id added:"+chatId);
                     }
                     //при  появлении первого пользователя ботом создатся таймер.
